@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Survival Horror 3D – Casa Abandonada</title>
+<style>
+body { margin:0; overflow:hidden; background:#000; }
+#ui{
+ position:absolute; top:10px; left:10px;
+ color:#e0e0e0; font-family:Arial;
+ background:rgba(0,0,0,0.6);
+ padding:10px; border-radius:8px;
+}
+#restartBtn{
+ margin-top:8px;
+ padding:6px 10px;
+ background:#550000;
+ color:#fff;
+ border:none;
+ border-radius:5px;
+ cursor:pointer;
+ display:none;
+}
+</style>
+</head>
+<body>
+<div id="ui">
+ ❤️ Vida: <span id="vida">100</span><br>
+ 🗝️ Llaves: <span id="llaves">0</span>/2<br>
+ 🏚️ Planta: <span id="planta">1</span><br>
+ <button id="restartBtn">🔄 Reiniciar</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+
+<script>
+// ESCENA
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x111111, 10, 60);
+
+// CAMARA
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 1000);
+
+// RENDER
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x1a1a1a);
+document.body.appendChild(renderer.domElement);
+
+// LUCES (tono sucio / realista)
+scene.add(new THREE.AmbientLight(0x888888, 1.2));(0x404040, 0.4));
+const light = new THREE.PointLight(0xfff2cc, 2.2, 30);(0xffe0bb, 1.2, 18);(0xffddaa, 1, 15);
+light.position.set(0,3,2);
+scene.add(light);
+
+// SUELOS Y PLANTAS
+function crearPlanta(y){
+ const geo = new THREE.BoxGeometry(20,0.4,20);
+ const mat = new THREE.MeshStandardMaterial({ color:0x444444, roughness:0.7, metalness:0.1 });
+ const f = new THREE.Mesh(geo,mat);
+ f.position.y=y;
+ scene.add(f);
+}
+crearPlanta(0);
+crearPlanta(5);
+crearPlanta(10);
+
+// PAREDES Y HABITACIONES
+function crearPared(x,y,z,w,h,d){
+ const mat = new THREE.MeshStandardMaterial({ color:0x555555, roughness:0.6, metalness:0.05 });
+ const p = new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+ p.position.set(x,y,z);
+ scene.add(p);
+}
+// exteriores
+crearPared(0,2,-10,20,4,0.5);
+crearPared(0,2,10,20,4,0.5);
+crearPared(-10,2,0,0.5,4,20);
+crearPared(10,2,0,0.5,4,20);
+// habitaciones interiores
+crearPared(0,2,0,0.5,4,10);
+crearPared(-5,2,0,10,4,0.5);
+// planta 2
+crearPared(0,7,-10,20,4,0.5);
+crearPared(0,7,10,20,4,0.5);
+crearPared(-10,7,0,0.5,4,20);
+crearPared(10,7,0,0.5,4,20);
+// planta 3
+crearPared(0,12,-10,20,4,0.5);
+crearPared(0,12,10,20,4,0.5);
+crearPared(-10,12,0,0.5,4,20);
+crearPared(10,12,0,0.5,4,20);
+
+// PERSONAJE (hombre, tercera persona)
+const player = new THREE.Mesh(
+ new THREE.CapsuleGeometry(0.4,1.2,4,8),
+ new THREE.MeshStandardMaterial({color:0x4444ff})
+);
+player.position.set(0,1.2,4);
+scene.add(player);
+
+// ENEMIGO (criatura)
+const enemy = new THREE.Mesh(
+ new THREE.SphereGeometry(0.8,16,16),
+ new THREE.MeshStandardMaterial({color:0x770000, roughness:0.9})
+);
+enemy.position.set(3,1.2,-3);
+scene.add(enemy);
+
+// LLAVES
+const keyGeo = new THREE.BoxGeometry(0.3,0.1,0.6);
+const keyMat = new THREE.MeshStandardMaterial({color:0xffff66, emissive:0x332200});
+const keys=[];
+function crearLlave(x,y,z){
+ const k = new THREE.Mesh(keyGeo,keyMat);
+ k.position.set(x,y,z);
+ scene.add(k); keys.push(k);
+}
+crearLlave(-3,1.2,-2);
+crearLlave(2,6.2,3);
+
+// VARIABLES
+let vida=100, llaves=0, planta=1;
+const move={w:false,s:false,a:false,d:false};
+
+// INPUT
+document.addEventListener('keydown',e=>{if(move[e.key]!=undefined) move[e.key]=true});
+document.addEventListener('keyup',e=>{if(move[e.key]!=undefined) move[e.key]=false});
+
+// CÁMARA TERCERA PERSONA
+function updateCamera(){
+ const offset = new THREE.Vector3(0,2.5,5);
+ const camPos = player.position.clone().add(offset);
+ camera.position.lerp(camPos,0.1);
+ camera.lookAt(player.position);
+}
+
+function animate(){
+ requestAnimationFrame(animate);
+
+ // MOVIMIENTO
+ if(move.w) player.position.z-=0.08;
+ if(move.s) player.position.z+=0.08;
+ if(move.a) player.position.x-=0.08;
+ if(move.d) player.position.x+=0.08;
+
+ // ENEMIGO SIGUE AL JUGADOR
+ enemy.position.lerp(player.position,0.005);
+ if(enemy.position.distanceTo(player.position)<1.2){
+  vida-=0.15;
+  if(vida<=0){
+   document.getElementById('restartBtn').style.display='block';
+  }
+}(player.position)<1.2){
+  vida-=0.1;
+ }
+
+ // LLAVES
+ keys.forEach((k,i)=>{
+  if(k && k.position.distanceTo(player.position)<1){
+   scene.remove(k); keys[i]=null; llaves++;
+  }
+ });
+
+ // PLANTAS
+ if(player.position.y<2) planta=1;
+ else if(player.position.y<7) planta=2;
+ else planta=3;
+
+ if(planta==2 && llaves<1) player.position.y=1.2;
+ if(planta==3 && llaves<2) player.position.y=6.2;
+
+ updateCamera();
+
+ document.getElementById('vida').textContent=Math.max(0,Math.floor(vida));
+ document.getElementById('llaves').textContent=llaves;
+ document.getElementById('planta').textContent=planta;
+
+ renderer.render(scene,camera);
+}
+
+animate();
+
+// REINICIO
+document.getElementById('restartBtn').onclick = () => {
+ location.reload();
+};
+window.addEventListener('resize',()=>{
+ camera.aspect=window.innerWidth/window.innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
+</body>
+</html>
